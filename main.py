@@ -142,8 +142,11 @@ class RelayController:
                     # 处理配网数据
                     data = request.split('\r\n\r\n')[1]
                     if self.process_config_data(data):
-                        cl.send(b"HTTP/1.1 200 OK\r\n\r\nConfig saved!")
+                        cl.send(b"HTTP/1.1 200 OK\r\n\r\nConfig saved! Restarting...")
                         cl.close()
+                        print("配网成功，准备重启系统...")
+                        # 配网成功后自动重启系统
+                        self.restart_after_config()
                         break
                     else:
                         cl.send(b"HTTP/1.1 400 Bad Request\r\n\r\nConfig failed!")
@@ -157,6 +160,19 @@ class RelayController:
         ap = network.WLAN(network.AP_IF)
         ap.active(False)
     
+    def restart_after_config(self):
+        """配网成功后重启系统"""
+        print("配网完成，重启系统...")
+        time.sleep(2)  # 等待2秒让用户看到消息
+        
+        # 关闭配网热点
+        ap = network.WLAN(network.AP_IF)
+        ap.active(False)
+        
+        # 重新启动主程序
+        print("重新启动主程序...")
+        self.run()
+    
     def get_config_page(self):
         """获取配网页面HTML"""
         html = """<!DOCTYPE html>
@@ -164,14 +180,40 @@ class RelayController:
 <head>
     <title>ESP32 WiFi配置</title>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
+        .container { max-width: 400px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; text-align: center; }
+        .form-group { margin: 15px 0; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], input[type="password"] { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        button:hover { background-color: #0056b3; }
+        .info { background-color: #e7f3ff; padding: 10px; border-radius: 5px; margin: 10px 0; }
+    </style>
 </head>
 <body>
-    <h1>ESP32 WiFi配置</h1>
-    <form method="POST" action="/config">
-        <p>WiFi SSID: <input type="text" name="ssid" required></p>
-        <p>WiFi密码: <input type="password" name="password"></p>
-        <p><input type="submit" value="保存配置"></p>
-    </form>
+    <div class="container">
+        <h1>🔧 ESP32 WiFi配置</h1>
+        <div class="info">
+            <strong>说明：</strong>请配置WiFi网络，配置成功后系统将自动重启并连接MQTT服务器。
+        </div>
+        <form method="POST" action="/config">
+            <div class="form-group">
+                <label for="ssid">WiFi网络名称 (SSID):</label>
+                <input type="text" id="ssid" name="ssid" required placeholder="请输入WiFi名称">
+            </div>
+            <div class="form-group">
+                <label for="password">WiFi密码:</label>
+                <input type="password" id="password" name="password" placeholder="请输入WiFi密码">
+            </div>
+            <button type="submit">💾 保存配置并重启</button>
+        </form>
+        <div class="info">
+            <strong>注意：</strong>配置保存后，设备将自动重启并尝试连接WiFi和MQTT服务器。
+        </div>
+    </div>
 </body>
 </html>"""
         
@@ -252,6 +294,7 @@ class RelayController:
                 return False
         else:
             print("WiFi已连接")
+            print(f"IP地址: {wlan.ifconfig()[0]}")
             self.wifi_connected = True
             return True
     
@@ -484,10 +527,12 @@ class RelayController:
         
         # 连接WiFi
         if not self.connect_wifi():
+            print("WiFi连接失败，系统退出")
             return
         
         # 连接MQTT
         if not self.connect_mqtt():
+            print("MQTT连接失败，系统退出")
             return
         
         print("系统启动完成，等待MQTT命令...")
