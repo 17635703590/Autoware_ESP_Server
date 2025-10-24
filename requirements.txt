@@ -1,0 +1,21 @@
+# ESP32 MicroPython 依赖库
+# 这些库需要预先烧录到ESP32的MicroPython固件中
+
+# 网络相关
+# network - 内置库，用于WiFi连接
+# socket - 内置库，用于网络通信
+
+# MQTT客户端
+# umqtt.simple - 需要安装到ESP32
+# 安装方法：upip.install('umqtt.simple')
+
+# JSON处理
+# json - 内置库
+
+# 硬件控制
+# machine - 内置库，用于GPIO控制
+# time - 内置库
+
+# 系统工具
+# ubinascii - 内置库
+# gc - 内置库，垃圾回收
